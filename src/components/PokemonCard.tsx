@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Doc } from "../../convex/_generated/dataModel";
-import { getTypeColor, getTypeGradient } from "../utils/typeColors";
+import { getTypeColor, getTypeGradient, getTypeGlow } from "../utils/typeColors";
 import { useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
@@ -8,9 +8,10 @@ interface PokemonCardProps {
   pokemon: Doc<"pokemon">;
   onClick: () => void;
   isFavorite: boolean;
+  isCompareMode?: boolean;
 }
 
-export function PokemonCard({ pokemon, onClick, isFavorite }: PokemonCardProps) {
+export function PokemonCard({ pokemon, onClick, isFavorite, isCompareMode }: PokemonCardProps) {
   // const toggleFavorite = useMutation(api.pokemon.toggleFavorite);
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
@@ -20,6 +21,7 @@ export function PokemonCard({ pokemon, onClick, isFavorite }: PokemonCardProps) 
 
   const primaryType = pokemon.type[0];
   const gradient = getTypeGradient(primaryType);
+  const glow = getTypeGlow(primaryType);
 
   return (
     <motion.div
@@ -33,7 +35,7 @@ export function PokemonCard({ pokemon, onClick, isFavorite }: PokemonCardProps) 
         transition: { duration: 0.2 }
       }}
       whileTap={{ scale: 0.95 }}
-      className={`relative cursor-pointer rounded-xl p-4 shadow-lg hover:shadow-xl transition-all duration-300 ${gradient} group overflow-hidden`}
+      className={`relative cursor-pointer rounded-xl p-4 shadow-lg hover:shadow-xl hover:${glow} transition-all duration-300 ${gradient} group overflow-hidden ${isCompareMode ? 'ring-2 ring-blue-400' : ''}`}
       onClick={onClick}
     >
       {/* Background Pattern */}

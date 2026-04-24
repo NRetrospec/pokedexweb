@@ -40,10 +40,35 @@ export const typeGradients: Record<string, string> = {
   Fairy: "bg-gradient-to-br from-pink-200 to-pink-400",
 };
 
+export const typeGlows: Record<string, string> = {
+  Normal: "shadow-gray-400/80 shadow-lg",
+  Fire: "shadow-red-500/80 shadow-lg",
+  Water: "shadow-blue-500/80 shadow-lg",
+  Electric: "shadow-yellow-400/80 shadow-lg",
+  Grass: "shadow-green-500/80 shadow-lg",
+  Ice: "shadow-blue-300/80 shadow-lg",
+  Fighting: "shadow-red-700/80 shadow-lg",
+  Poison: "shadow-purple-500/80 shadow-lg",
+  Ground: "shadow-yellow-600/80 shadow-lg",
+  Flying: "shadow-indigo-400/80 shadow-lg",
+  Psychic: "shadow-pink-500/80 shadow-lg",
+  Bug: "shadow-green-400/80 shadow-lg",
+  Rock: "shadow-yellow-800/80 shadow-lg",
+  Ghost: "shadow-purple-700/80 shadow-lg",
+  Dragon: "shadow-indigo-700/80 shadow-lg",
+  Dark: "shadow-gray-800/80 shadow-lg",
+  Steel: "shadow-gray-500/80 shadow-lg",
+  Fairy: "shadow-pink-300/80 shadow-lg",
+};
+
 export function getTypeColor(type: string): string {
   return typeColors[type] || typeColors.Normal;
 }
 
 export function getTypeGradient(type: string): string {
   return typeGradients[type] || typeGradients.Normal;
+}
+
+export function getTypeGlow(type: string): string {
+  return typeGlows[type] || typeGlows.Normal;
 }

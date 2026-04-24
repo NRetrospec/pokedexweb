@@ -8,14 +8,17 @@ import { FilterBar } from "./FilterBar";
 import { TypeChart } from "./TypeChart";
 import { motion, AnimatePresence } from "framer-motion";
 import { Doc } from "../../convex/_generated/dataModel";
+import { getTypeGlow } from "../utils/typeColors";
 
 export function PokemonExplorer() {
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [sortBy, setSortBy] = useState("pokemonId");
   const [selectedPokemon, setSelectedPokemon] = useState<Doc<"pokemon"> | null>(null);
+  const [comparePokemon, setComparePokemon] = useState<Doc<"pokemon"> | null>(null);
   const [showChart, setShowChart] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
+  const [showCompareModal, setShowCompareModal] = useState(false);
 
   const pokemon = useQuery(api.pokemon.getAllPokemon, {
     search: search || undefined,
@@ -37,6 +40,21 @@ export function PokemonExplorer() {
     if (randomPokemon) {
       setSelectedPokemon(randomPokemon);
     }
+  };
+
+  const handleCompareClick = () => {
+    if (selectedPokemon) {
+      setShowCompareModal(true);
+    }
+  };
+
+  const handleCompareSelect = (pokemon: Doc<"pokemon">) => {
+    setComparePokemon(pokemon);
+    setShowCompareModal(false);
+  };
+
+  const clearCompare = () => {
+    setComparePokemon(null);
   };
 
   const getNextPokemon = () => {
@@ -133,8 +151,9 @@ export function PokemonExplorer() {
               <PokemonCard
                 key={p.pokemonId}
                 pokemon={p}
-                onClick={() => setSelectedPokemon(p)}
+                onClick={() => showCompareModal ? handleCompareSelect(p) : setSelectedPokemon(p)}
                 isFavorite={false}
+                isCompareMode={showCompareModal}
               />
             ))}
           </AnimatePresence>
@@ -154,7 +173,7 @@ export function PokemonExplorer() {
 
         {/* Pokemon Detail Modal */}
         <AnimatePresence>
-          {selectedPokemon && (
+          {selectedPokemon && !showCompareModal && !comparePokemon && (
             <PokemonModal
               pokemon={selectedPokemon}
               onClose={() => setSelectedPokemon(null)}
@@ -167,7 +186,198 @@ export function PokemonExplorer() {
                 if (prev) setSelectedPokemon(prev);
               }}
               isFavorite={false}
+              onCompare={handleCompareClick}
             />
+          )}
+        </AnimatePresence>
+
+        {/* Compare Selection Modal */}
+        <AnimatePresence>
+          {showCompareModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={() => setShowCompareModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                className="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Select Pokémon to Compare with {selectedPokemon?.name}
+                  </h3>
+                  <button
+                    onClick={() => setShowCompareModal(false)}
+                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="max-h-96 overflow-y-auto">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {pokemon.filter(p => p.pokemonId !== selectedPokemon?.pokemonId).map((p) => {
+                      const primaryType = p.type[0];
+                      const glow = getTypeGlow(primaryType);
+                      return (
+                        <div
+                          key={p.pokemonId}
+                          className={`cursor-pointer rounded-lg p-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 hover:${glow} transition-all duration-300 border-2 border-transparent hover:border-blue-400`}
+                          onClick={() => handleCompareSelect(p)}
+                        >
+                        <img
+                          src={p.image}
+                          alt={p.name}
+                          className="w-16 h-16 mx-auto object-contain mb-2"
+                        />
+                        <div className="text-center">
+                          <div className="text-sm font-semibold text-gray-900 dark:text-white capitalize">
+                            {p.name}
+                          </div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            #{p.pokemonId.toString().padStart(3, "0")}
+                          </div>
+                        </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Compare View Modal */}
+        <AnimatePresence>
+          {comparePokemon && selectedPokemon && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+              onClick={() => {
+                setComparePokemon(null);
+                setSelectedPokemon(null);
+              }}
+            >
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.8, opacity: 0 }}
+                className="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    Pokémon Comparison
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setComparePokemon(null);
+                      setSelectedPokemon(null);
+                    }}
+                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-8">
+                  {/* First Pokemon */}
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                        {selectedPokemon.name}
+                      </h4>
+                      <img
+                        src={selectedPokemon.image}
+                        alt={selectedPokemon.name}
+                        className="w-32 h-32 mx-auto object-contain"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                          {(selectedPokemon.height / 10).toFixed(1)}m
+                        </div>
+                        <div className="text-gray-600 dark:text-gray-400">Height</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                          {(selectedPokemon.weight / 10).toFixed(1)}kg
+                        </div>
+                        <div className="text-gray-600 dark:text-gray-400">Weight</div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h5 className="font-semibold text-gray-900 dark:text-white mb-2">Stats</h5>
+                      <div className="space-y-2">
+                        {Object.entries(selectedPokemon.stats).map(([stat, value]) => (
+                          <div key={stat} className="flex justify-between text-sm">
+                            <span className="capitalize text-gray-600 dark:text-gray-400">
+                              {stat.replace(/([A-Z])/g, ' $1').trim()}
+                            </span>
+                            <span className="font-semibold text-gray-900 dark:text-white">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Second Pokemon */}
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                        {comparePokemon.name}
+                      </h4>
+                      <img
+                        src={comparePokemon.image}
+                        alt={comparePokemon.name}
+                        className="w-32 h-32 mx-auto object-contain"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                          {(comparePokemon.height / 10).toFixed(1)}m
+                        </div>
+                        <div className="text-gray-600 dark:text-gray-400">Height</div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                          {(comparePokemon.weight / 10).toFixed(1)}kg
+                        </div>
+                        <div className="text-gray-600 dark:text-gray-400">Weight</div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h5 className="font-semibold text-gray-900 dark:text-white mb-2">Stats</h5>
+                      <div className="space-y-2">
+                        {Object.entries(comparePokemon.stats).map(([stat, value]) => (
+                          <div key={stat} className="flex justify-between text-sm">
+                            <span className="capitalize text-gray-600 dark:text-gray-400">
+                              {stat.replace(/([A-Z])/g, ' $1').trim()}
+                            </span>
+                            <span className="font-semibold text-gray-900 dark:text-white">{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
       </div>

@@ -1,5 +1,6 @@
 import { query, mutation, action } from "./_generated/server";
 import { v } from "convex/values";
+import { api } from "./_generated/api";
 
 // Sample Pokémon data for demonstration
 const samplePokemon = [
@@ -114,8 +115,18 @@ export const initializePokemon = mutation({
     for (const pokemon of samplePokemon) {
       await ctx.db.insert("pokemon", pokemon);
     }
-    
+
     return "Pokémon data initialized";
+  },
+});
+
+export const clearAllPokemon = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const allPokemon = await ctx.db.query("pokemon").collect();
+    const deletePromises = allPokemon.map(pokemon => ctx.db.delete(pokemon._id));
+    await Promise.all(deletePromises);
+    return `Cleared ${allPokemon.length} Pokemon from database`;
   },
 });
 
@@ -210,5 +221,167 @@ export const getTypeDistribution = query({
       type,
       count,
     }));
+  },
+});
+
+// Action to import all Kanto Pokemon (1-151) from PokeAPI
+export const importKantoPokemon = action({
+  args: {},
+  handler: async (ctx): Promise<{
+    success: boolean;
+    imported: number;
+    errors: number;
+    message: string;
+    pokemon: string[];
+  }> => {
+    const existingCount: any[] = await ctx.runQuery(api.pokemon.getAllPokemon, {});
+    if (existingCount.length > 0) {
+      return {
+        success: false,
+        imported: 0,
+        errors: 0,
+        message: `Database already has ${existingCount.length} Pokemon. Clear database first or use a different import method.`,
+        pokemon: [],
+      };
+    }
+
+    const importedPokemon: string[] = [];
+    const errors: string[] = [];
+
+    // Import Pokemon 1-151 (Kanto region)
+    for (let id = 1; id <= 151; id++) {
+      try {
+        // Fetch basic Pokemon data
+        const pokemonResponse = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+        if (!pokemonResponse.ok) {
+          errors.push(`Failed to fetch Pokemon ${id}`);
+          continue;
+        }
+        const pokemonData = await pokemonResponse.json();
+
+        // Fetch species data for description
+        const speciesResponse = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${id}`);
+        let description = "No description available.";
+        if (speciesResponse.ok) {
+          const speciesData = await speciesResponse.json();
+          const englishEntry = speciesData.flavor_text_entries.find(
+            (entry: any) => entry.language.name === "en"
+          );
+          if (englishEntry) {
+            description = englishEntry.flavor_text.replace(/\f/g, " ");
+          }
+        }
+
+        // Extract types
+        const types = pokemonData.types.map((t: any) => t.type.name.charAt(0).toUpperCase() + t.type.name.slice(1));
+
+        // Extract abilities
+        const abilities = pokemonData.abilities.map((a: any) => a.ability.name.charAt(0).toUpperCase() + a.ability.name.slice(1));
+
+        // Calculate weaknesses based on types
+        const weaknesses = await getTypeWeaknesses(types);
+
+        // Extract stats
+        const stats = {
+          hp: pokemonData.stats.find((s: any) => s.stat.name === "hp").base_stat,
+          attack: pokemonData.stats.find((s: any) => s.stat.name === "attack").base_stat,
+          defense: pokemonData.stats.find((s: any) => s.stat.name === "defense").base_stat,
+          specialAttack: pokemonData.stats.find((s: any) => s.stat.name === "special-attack").base_stat,
+          specialDefense: pokemonData.stats.find((s: any) => s.stat.name === "special-defense").base_stat,
+          speed: pokemonData.stats.find((s: any) => s.stat.name === "speed").base_stat,
+        };
+
+        const pokemon = {
+          pokemonId: id,
+          name: pokemonData.name.charAt(0).toUpperCase() + pokemonData.name.slice(1),
+          image: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`,
+          type: types,
+          height: pokemonData.height,
+          weight: pokemonData.weight,
+          abilities,
+          weaknesses,
+          stats,
+          description,
+        };
+
+        await ctx.runMutation(api.pokemon.addPokemon, pokemon);
+        importedPokemon.push(pokemon.name);
+
+        // Add small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+      } catch (error) {
+        errors.push(`Error importing Pokemon ${id}: ${error}`);
+      }
+    }
+
+    return {
+      success: true,
+      imported: importedPokemon.length,
+      errors: errors.length,
+      message: `Successfully imported ${importedPokemon.length} Kanto Pokemon. ${errors.length} errors occurred.`,
+      pokemon: importedPokemon,
+    };
+  },
+});
+
+// Helper function to calculate type weaknesses
+async function getTypeWeaknesses(types: string[]): Promise<string[]> {
+  const typeWeaknesses: Record<string, string[]> = {
+    Normal: ["Fighting"],
+    Fire: ["Water", "Ground", "Rock"],
+    Water: ["Electric", "Grass"],
+    Electric: ["Ground"],
+    Grass: ["Fire", "Ice", "Poison", "Flying", "Bug"],
+    Ice: ["Fire", "Fighting", "Rock", "Steel"],
+    Fighting: ["Flying", "Psychic", "Fairy"],
+    Poison: ["Ground", "Psychic"],
+    Ground: ["Water", "Grass", "Ice"],
+    Flying: ["Electric", "Ice", "Rock"],
+    Psychic: ["Bug", "Ghost", "Dark"],
+    Bug: ["Fire", "Flying", "Rock"],
+    Rock: ["Water", "Grass", "Fighting", "Ground", "Steel"],
+    Ghost: ["Ghost", "Dark"],
+    Dragon: ["Ice", "Dragon", "Fairy"],
+    Dark: ["Fighting", "Bug", "Fairy"],
+    Steel: ["Fire", "Fighting", "Ground"],
+    Fairy: ["Poison", "Steel"],
+  };
+
+  const weaknesses = new Set<string>();
+
+  types.forEach(type => {
+    const typeWeakness = typeWeaknesses[type];
+    if (typeWeakness) {
+      typeWeakness.forEach(weakness => weaknesses.add(weakness));
+    }
+  });
+
+  return Array.from(weaknesses);
+}
+
+// Mutation to add a single Pokemon (used by the import action)
+export const addPokemon = mutation({
+  args: {
+    pokemonId: v.number(),
+    name: v.string(),
+    image: v.string(),
+    type: v.array(v.string()),
+    height: v.number(),
+    weight: v.number(),
+    abilities: v.array(v.string()),
+    weaknesses: v.array(v.string()),
+    stats: v.object({
+      hp: v.number(),
+      attack: v.number(),
+      defense: v.number(),
+      specialAttack: v.number(),
+      specialDefense: v.number(),
+      speed: v.number(),
+    }),
+    description: v.string(),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.insert("pokemon", args);
   },
 });

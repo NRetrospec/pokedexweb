@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { Doc } from "../../convex/_generated/dataModel";
 import { getTypeColor, getTypeGradient } from "../utils/typeColors";
 import { useMutation } from "convex/react";
@@ -10,19 +10,33 @@ interface PokemonModalProps {
   onNext: () => void;
   onPrev: () => void;
   isFavorite: boolean;
+  onCompare?: () => void;
 }
 
-export function PokemonModal({ pokemon, onClose, onNext, onPrev, isFavorite }: PokemonModalProps) {
+export function PokemonModal({ pokemon, onClose, onNext, onPrev, isFavorite, onCompare }: PokemonModalProps) {
   // const toggleFavorite = useMutation(api.pokemon.toggleFavorite);
 
   const handleFavoriteClick = () => {
-    // toggleFavorite({ pokemonId: pokemon.pokemonId });
+    if (onCompare) {
+      onCompare();
+    }
   };
 
   const primaryType = pokemon.type[0];
   const gradient = getTypeGradient(primaryType);
 
   const maxStat = Math.max(...Object.values(pokemon.stats));
+
+  const handleDragEnd = (event: any, info: PanInfo) => {
+    const swipeThreshold = 50;
+    if (info.offset.x > swipeThreshold) {
+      // Swipe right - previous
+      onPrev();
+    } else if (info.offset.x < -swipeThreshold) {
+      // Swipe left - next
+      onNext();
+    }
+  };
 
   return (
     <motion.div
@@ -36,7 +50,11 @@ export function PokemonModal({ pokemon, onClose, onNext, onPrev, isFavorite }: P
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.8, opacity: 0 }}
-        className={`relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${gradient}`}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.1}
+        onDragEnd={handleDragEnd}
+        className={`relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${gradient} cursor-grab active:cursor-grabbing`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -59,9 +77,7 @@ export function PokemonModal({ pokemon, onClose, onNext, onPrev, isFavorite }: P
               onClick={handleFavoriteClick}
               className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
             >
-              <span className={`text-2xl ${isFavorite ? "text-red-500" : "text-white/70"}`}>
-                {isFavorite ? "❤️" : "🤍"}
-              </span>
+              <span className="text-2xl text-white/70">⚖️</span>
             </button>
           </div>
 
@@ -187,7 +203,7 @@ export function PokemonModal({ pokemon, onClose, onNext, onPrev, isFavorite }: P
               ← Previous
             </button>
             <div className="text-sm text-gray-500 dark:text-gray-400">
-              Navigate with arrow keys
+              Navigate with arrow keys or swipe
             </div>
             <button
               onClick={onNext}
