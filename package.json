@@ -8,7 +8,9 @@
     "dev:frontend": "vite --open",
     "dev:backend": "convex dev",
     "build": "vite build",
-    "lint": "tsc -p convex -noEmit --pretty false && tsc -p . -noEmit --pretty false && convex dev --once && vite build"
+    "lint": "tsc -p convex -noEmit --pretty false && tsc -p . -noEmit --pretty false && convex dev --once && vite build",
+    "remotion:studio": "remotion studio remotion/index.ts",
+    "remotion:render": "remotion render remotion/index.ts Promo out/promo.mp4 --codec=h264"
   },
   "dependencies": {
     "@types/styled-components": "^5.1.35",
@@ -23,6 +25,9 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
+    "@remotion/cli": "^4.0.451",
+    "@remotion/google-fonts": "^4.0.451",
+    "@remotion/transitions": "^4.0.451",
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
@@ -36,6 +41,7 @@
     "npm-run-all": "^4.1.5",
     "postcss": "~8",
     "prettier": "^3.5.3",
+    "remotion": "^4.0.451",
     "tailwindcss": "~3",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.24.1",

@@ -6,11 +6,25 @@ import { useEffect, useState, useRef } from "react";
 
 type Phase = "landing" | "video" | "main";
 
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(
+    () => window.matchMedia("(max-width: 767px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
+
 export default function App() {
   const [phase, setPhase] = useState<Phase>("landing");
   const [showHint, setShowHint] = useState(true);
   const initializePokemon = useMutation(api.pokemon.initializePokemon);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     initializePokemon().catch(console.error);
@@ -21,6 +35,108 @@ export default function App() {
       videoRef.current.play().catch(console.error);
     }
   }, [phase]);
+
+  // ── Mobile Landing ────────────────────────────────────────────────────────
+  if (isMobile && phase === "landing") {
+    return (
+      <div
+        className="fixed inset-0 flex items-center justify-center"
+        style={{ backgroundColor: "#7B0000" }}
+      >
+        {/*
+          Portrait container: scales to fill the screen while preserving the
+          9:16 image ratio so the button % coords always sit over the green pad.
+        */}
+        <div
+          className="relative select-none"
+          style={{
+            height: "min(100vh, calc(100vw * 1280 / 720))",
+            aspectRatio: "720 / 1280",
+          }}
+        >
+          <img
+            src="/images/mobliepokecover.jpg"
+            alt="Pokédex"
+            className="w-full h-full"
+            draggable={false}
+          />
+
+          {/* "Start Up" button sits over the green rectangle on the device */}
+          <button
+            onClick={() => setPhase("video")}
+            className="absolute z-10 flex items-center justify-center cursor-pointer border-none bg-transparent p-0"
+            style={{
+              left: "50%",
+              top: "71.5%",
+              width: "28%",
+              height: "7%",
+              transform: "translateX(-50%)",
+            }}
+            aria-label="Start Up"
+          >
+            <span
+              className="font-bold tracking-widest animate-pulse"
+              style={{
+                fontSize: "clamp(9px, 3.5vw, 16px)",
+                color: "#FFD700",
+                textShadow:
+                  "0 1px 6px rgba(0,0,0,0.9), 0 0 12px rgba(255,215,0,0.6)",
+                whiteSpace: "nowrap",
+                letterSpacing: "0.1em",
+              }}
+            >
+              START UP
+            </span>
+          </button>
+        </div>
+
+        <Toaster />
+      </div>
+    );
+  }
+
+  // ── Mobile Video ──────────────────────────────────────────────────────────
+  if (isMobile && phase === "video") {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center">
+        <video
+          ref={videoRef}
+          src="/images/pokevideomoblie.MP4"
+          className="w-full h-full object-contain"
+          onEnded={() => setPhase("main")}
+          onCanPlay={() => videoRef.current?.play().catch(() => {})}
+          autoPlay
+          playsInline
+        />
+        <Toaster />
+      </div>
+    );
+  }
+
+  // ── Mobile Main ───────────────────────────────────────────────────────────
+  if (isMobile && phase === "main") {
+    return (
+      <div className="relative min-h-screen">
+        <div
+          className="fixed inset-0 -z-10"
+          style={{
+            backgroundImage: "url('/images/mobliepokecover2.jpg')",
+            backgroundSize: "cover",
+            backgroundPosition: "top center",
+          }}
+        />
+        {/*
+          mobliepokecover2.jpg title ends ~23% down the 9:16 image.
+          With cover, image height = 100vh on portrait → spacer ≈ 25.5vh.
+        */}
+        <div style={{ height: "25.5vh" }} />
+        <div className="relative z-10 bg-gray-900/85 rounded-t-2xl min-h-[74vh]">
+          <PokemonExplorer />
+        </div>
+        <Toaster />
+      </div>
+    );
+  }
 
   // ── Landing ──────────────────────────────────────────────────────────────
   if (phase === "landing") {
